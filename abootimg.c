@@ -51,6 +51,10 @@
 #include <blkid/blkid.h>
 #endif
 
+#ifdef USE_OPENSSL
+#include <openssl/sha.h>
+#endif
+
 #include "version.h"
 #include "bootimg.h"
 
@@ -634,6 +638,8 @@ void write_bootimg(t_abootimg* img)
 {
   unsigned psize;
   char* padding;
+  SHA_CTX ctx;
+  unsigned char sha[SHA_DIGEST_LENGTH];
 
   printf ("Writing Boot Image %s\n", img->fname);
 
@@ -645,6 +651,25 @@ void write_bootimg(t_abootimg* img)
   unsigned n = (img->header.kernel_size + psize - 1) / psize;
   unsigned m = (img->header.ramdisk_size + psize - 1) / psize;
   //unsigned o = (img->header.second_size + psize - 1) / psize;
+
+  unsigned h = sizeof(img->header);
+
+  SHA1_Init(&ctx);
+  SHA1_Update(&ctx, img->kernel, img->header.kernel_size);
+  SHA1_Update(&ctx, &img->header.kernel_size, sizeof(img->header.kernel_size));
+  SHA1_Update(&ctx, img->ramdisk, img->header.ramdisk_size);
+  SHA1_Update(&ctx, &img->header.ramdisk_size, sizeof(img->header.ramdisk_size));
+  SHA1_Update(&ctx, img->second, img->header.second_size);
+  SHA1_Update(&ctx, &img->header.second_size, sizeof(img->header.second_size));
+  SHA1_Update(&ctx, &img->header.tags_addr, sizeof(img->header.tags_addr));
+  SHA1_Update(&ctx, &img->header.page_size, sizeof(img->header.page_size));
+  SHA1_Update(&ctx, &img->header.unused, sizeof(img->header.unused));
+  SHA1_Update(&ctx, &img->header.name, sizeof(img->header.name));
+  SHA1_Update(&ctx, &img->header.cmdline, sizeof(img->header.cmdline));
+  SHA1_Final(sha, &ctx);
+
+  memcpy(img->header.id, sha,
+	SHA_DIGEST_LENGTH > sizeof(img->header.id) ? sizeof(img->header.id) : SHA_DIGEST_LENGTH);
 
   if (fseek(img->stream, 0, SEEK_SET))
     abort_perror(img->fname);

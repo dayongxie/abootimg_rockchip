@@ -1,7 +1,9 @@
 
 CPPFLAGS=-DHAS_BLKID
+CPPFLAGS=-DUSE_OPENSSL
 CFLAGS=-O3 -Wall
 LDLIBS=-lblkid
+LDLIBS=-lssl -lcrypto
 
 all: abootimg
 
